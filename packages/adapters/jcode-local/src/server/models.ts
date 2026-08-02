@@ -16,9 +16,20 @@ function firstNonEmptyLine(text: string): string {
 function parseModelsJson(stdout: string): AdapterModel[] {
   try {
     const parsed = JSON.parse(stdout);
-    if (!Array.isArray(parsed)) return [];
+    // jcode `model list --json` returns { provider, selected_model, models: string[] };
+    // older/other builds may return a bare array of { id, label? } objects.
+    const rawList: unknown[] = Array.isArray(parsed)
+      ? parsed
+      : parsed && Array.isArray((parsed as Record<string, unknown>).models)
+        ? ((parsed as Record<string, unknown>).models as unknown[])
+        : [];
     const models: AdapterModel[] = [];
-    for (const entry of parsed) {
+    for (const entry of rawList) {
+      if (typeof entry === "string") {
+        const sid = entry.trim();
+        if (sid) models.push({ id: sid, label: sid });
+        continue;
+      }
       if (typeof entry !== "object" || entry === null) continue;
       const rec = entry as Record<string, unknown>;
       const id = asString(rec.id, "");
